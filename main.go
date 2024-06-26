@@ -45,17 +45,24 @@ func main() {
 	scrollContainer := container.NewScroll(output)
 	scrollContainer.SetMinSize(fyne.NewSize(600, 300))
 
+	updateTicker := time.NewTicker(1 * time.Second)
+	defer updateTicker.Stop()
+
 	go func() {
-		for message := range messageChan {
-			if len(messages) >= maxMessages {
-				messages = messages[1:] // Remove the oldest message
+		for {
+			select {
+			case message := <-messageChan:
+				if len(messages) >= maxMessages {
+					messages = messages[1:] // Remove the oldest message
+				}
+				messages = append(messages, message)
+			case <-updateTicker.C:
+				output.SetText("")
+				for _, msg := range messages {
+					output.SetText(output.Text + msg + "\n")
+				}
+				output.Refresh()
 			}
-			messages = append(messages, message)
-			output.SetText("")
-			for _, msg := range messages {
-				output.SetText(output.Text + msg + "\n")
-			}
-			output.Refresh()
 		}
 	}()
 
