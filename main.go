@@ -10,7 +10,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-func startScheduler(stopChan <-chan struct{}, appendMessage chan string, wg *sync.WaitGroup) {
+func startScheduler(stopChan <-chan struct{}, messageChan chan<- string, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	ticker := time.NewTicker(500 * time.Millisecond)
@@ -20,9 +20,9 @@ func startScheduler(stopChan <-chan struct{}, appendMessage chan string, wg *syn
 		select {
 		case <-ticker.C:
 			message := "Contrary to popular belief, Lorem Ipsum is not simply random text. It has roots in a piece of classical Latin literature from 45 BC, making it over 2000 years old. Richard McClintock, a Latin professor at Hampden-Sydney College in Virginia, looked up one of the more obscure Latin words, consectetur, from a Lorem Ipsum passage, and going through the cites of the word in classical literature, discovered the undoubtable source. Lorem Ipsum comes from sections 1.10.32 and 1.10.33 of de Finibus Bonorum et Malorum (The Extremes of Good and Evil) by Cicero, written in 45 BC. This book is a treatise on the theory of ethics, very popular during the Renaissance. The first line of Lorem Ipsum, Lorem ipsum dolor sit amet.., comes from a line in section 1.10.32."
-			appendMessage <- message
+			messageChan <- message
 		case <-stopChan:
-			appendMessage <- "Scheduler stopped"
+			messageChan <- "Scheduler stopped"
 			return
 		}
 	}
@@ -34,35 +34,27 @@ func main() {
 	w.Resize(fyne.NewSize(600, 400))
 
 	stopChan := make(chan struct{})
-	appendMessage := make(chan string, 100)
+	messageChan := make(chan string, 100)
 	var wg sync.WaitGroup
 	var schedulerRunning bool
 
-	output := widget.NewMultiLineEntry()
-	output.Wrapping = fyne.TextWrapWord
-	output.Disable() // Make it read-only
-
+	output := widget.NewLabel("")
 	scrollContainer := container.NewScroll(output)
 	scrollContainer.SetMinSize(fyne.NewSize(600, 300))
 
-	buffer := ""
-
 	go func() {
-		for message := range appendMessage {
-			buffer += message + "\n"
-			output.SetText(buffer)
-			output.CursorRow = len(buffer)
+		for message := range messageChan {
+			output.SetText(message) // Set label text to the latest message only
 			output.Refresh()
-			scrollContainer.ScrollToBottom()
 		}
 	}()
 
 	startButton := widget.NewButton("Start", func() {
 		if !schedulerRunning {
 			schedulerRunning = true
-			appendMessage <- "Starting scheduler..."
+			messageChan <- "Starting scheduler..."
 			wg.Add(1)
-			go startScheduler(stopChan, appendMessage, &wg)
+			go startScheduler(stopChan, messageChan, &wg)
 		}
 	})
 
@@ -77,9 +69,9 @@ func main() {
 	w.SetCloseIntercept(func() {
 		if !schedulerRunning {
 			w.Close()
-			close(appendMessage) // Close the channel when the window is closed
+			close(messageChan) // Close the channel when the window is closed
 		} else {
-			appendMessage <- "Stop the scheduler before closing."
+			messageChan <- "Stop the scheduler before closing."
 		}
 	})
 
