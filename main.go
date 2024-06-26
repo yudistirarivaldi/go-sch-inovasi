@@ -10,7 +10,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-const maxMessages = 10
+const maxMessages = 5
 
 func startScheduler(stopChan <-chan struct{}, messageChan chan<- string, wg *sync.WaitGroup) {
 	defer wg.Done()
